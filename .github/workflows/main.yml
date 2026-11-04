@@ -1,0 +1,59 @@
+name: Build & Release .deb
+
+on:
+  push:
+    branches: [ "main", "master" ]
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch: # Cho phép bấm nút "Run workflow" để chạy thủ công trên GitHub
+
+jobs:
+  build-deb:
+    name: Build for arm64/arm64e
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: write # Cấp quyền ghi Release cho GITHUB_TOKEN
+
+    steps:
+      - name: Checkout code  
+        uses: actions/checkout@v3
+        
+      - name: Setup Theos Environment  
+        run: |
+          sudo apt-get update -y && sudo apt-get install -y \
+            git wget curl bsdmainutils autoconf automake libtool \
+            build-essential clang libffi-dev libssl-dev zlib1g-dev \
+            flex bison libxml2-dev libcurl4-openssl-dev cmake pkg-config
+      
+          # Xóa dọn dẹp thư mục cũ để tránh lỗi đã tồn tại (exit code 128)
+          rm -rf ~/theos
+      
+          # Clone Theos môi trường chính
+          git clone --recursive https://github.com/theos/theos ~/theos
+      
+          # Clone kho SDKs chuẩn của Theos
+          git clone --depth=1 https://github.com/theos/sdks.git ~/theos/sdks
+          
+      - name: Export env và build  
+        run: |
+          export THEOS=~/theos  
+          export ARCHS="arm64 arm64e"  
+          export TARGET_IPHONEOS_DEPLOYMENT_VERSION=15.0  
+
+          chmod +x package.sh  
+          ./package.sh
+        
+      - name: Kiểm tra vị trí file .deb sau khi build
+        run: |
+          echo "=== Danh sách file ở thư mục gốc ==="
+          ls -la
+          echo "=== Danh sách file trong thư mục packages (nếu có) ==="
+          ls -la packages/ || true
+
+      - name: Create Release & Upload .deb  
+        uses: ncipollo/release-action@v1  
+        with:
+          artifacts: "packages/*.deb, *.deb" # Tìm file .deb ở cả thư mục packages/ lẫn thư mục gốc
+          token: ${{ secrets.GITHUB_TOKEN }}
+          allowUpdates: true
