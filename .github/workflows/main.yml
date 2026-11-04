@@ -1,0 +1,59 @@
+name: Build & Release .deb
+
+on:
+  push:
+    branches: [ "main", "master" ]
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch: # Cho phép bấm nút chạy thủ công trên GitHub
+
+jobs:
+  build-deb:
+    name: Build for arm64/arm64e
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: write # Cấp quyền tạo Release cho GITHUB_TOKEN
+
+    steps:
+      - name: Checkout code  
+        uses: actions/checkout@v3
+        
+      - name: Setup Theos Environment  
+        run: |
+          sudo apt-get update -y && sudo apt-get install -y \
+            git wget curl bsdmainutils autoconf automake libtool \
+            build-essential clang libffi-dev libssl-dev zlib1g-dev \
+            flex bison libxml2-dev libcurl4-openssl-dev cmake pkg-config
+      
+          # Install Theos for arm64 support  
+          git clone --recursive https://github.com/theos/theos ~/theos
+      
+          # Install SDK iOS 17 (arm64e compatible)  
+          wget https://github.com/theos/sdks/archive/iOS-SDK-17.zip  
+          unzip iOS-SDK-17.zip -d ~/theos/sdks/
+          # Sửa tên thư mục SDK nếu bị thêm hậu tố đuôi zip
+          mv ~/theos/sdks/sdks-iOS-SDK-17 ~/theos/sdks/ios17 || true
+          
+      - name: Export env và build  
+        run: |
+          export THEOS=~/theos  
+          export ARCHS="arm64 arm64e"  
+          export TARGET_IPHONEOS_DEPLOYMENT_VERSION=15.0  
+
+          chmod +x package.sh  
+          ./package.sh
+        
+      - name: Kiểm tra thư mục chứa file .deb
+        run: |
+          echo "Danh sách file sau khi build:"
+          ls -la
+          ls -la packages/ || true
+          ls -la releases/ || true
+
+      - name: Create Release & Upload .deb  
+        uses: ncipollo/release-action@v1  
+        with:
+          artifacts: "packages/*.deb" # Sửa lại đúng thư mục Theos thường xuất file (hoặc "*.deb" nếu nằm ở thư mục gốc)
+          token: ${{ secrets.GITHUB_TOKEN }}
+          allowUpdates: true
