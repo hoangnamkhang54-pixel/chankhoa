@@ -36,27 +36,20 @@ jobs:
           git clone --depth=1 https://github.com/theos/sdks.git "$THEOS/sdks"
 
       - name: Build
+        working-directory: NoScreenLock
         run: |
           export ARCHS="arm64 arm64e"
           export TARGET_IPHONEOS_DEPLOYMENT_VERSION=15.0
-          if [ -f package.sh ]; then
-            chmod +x package.sh
-            ./package.sh
-          else
-            make clean package FINALPACKAGE=1
-          fi
-
-      - name: Kiểm tra file .deb
-        run: |
-          find . -name "*.deb" -not -path "./theos/*"
+          ls -la
+          make clean package FINALPACKAGE=1
+          mkdir -p "$GITHUB_WORKSPACE/out"
+          cp packages/*.deb "$GITHUB_WORKSPACE/out/"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: deb-package
-          path: |
-            packages/*.deb
-            *.deb
+          path: out/*.deb
           if-no-files-found: error
 
       - name: Set release tag
@@ -72,7 +65,7 @@ jobs:
         uses: ncipollo/release-action@v1
         with:
           tag: ${{ steps.tag.outputs.name }}
-          artifacts: "packages/*.deb,*.deb"
+          artifacts: "out/*.deb"
           token: ${{ secrets.GITHUB_TOKEN }}
           allowUpdates: true
           replacesArtifacts: true
