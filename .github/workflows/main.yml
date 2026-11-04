@@ -1,0 +1,77 @@
+name: Build & Release .deb
+
+on:
+  push:
+    branches: [ "main", "master" ]
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+
+jobs:
+  build-deb:
+    name: Build for arm64/arm64e
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    env:
+      THEOS: ${{ github.workspace }}/theos
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y git wget curl build-essential clang fakeroot dpkg perl rsync unzip libtinfo5 || sudo apt-get install -y git wget curl build-essential clang fakeroot dpkg perl rsync unzip
+          sudo wget -q https://github.com/ProcursusTeam/ldid/releases/latest/download/ldid_linux_x86_64 -O /usr/local/bin/ldid
+          sudo chmod +x /usr/local/bin/ldid
+
+      - name: Setup Theos
+        run: |
+          git clone --recursive https://github.com/theos/theos.git "$THEOS"
+          git clone --depth=1 https://github.com/theos/sdks.git "$THEOS/sdks"
+
+      - name: Build
+        run: |
+          export ARCHS="arm64 arm64e"
+          export TARGET_IPHONEOS_DEPLOYMENT_VERSION=15.0
+          if [ -f package.sh ]; then
+            chmod +x package.sh
+            ./package.sh
+          else
+            make clean package FINALPACKAGE=1
+          fi
+
+      - name: Kiểm tra file .deb
+        run: |
+          find . -name "*.deb" -not -path "./theos/*"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: deb-package
+          path: |
+            packages/*.deb
+            *.deb
+          if-no-files-found: error
+
+      - name: Set release tag
+        id: tag
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            echo "name=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          else
+            echo "name=build-${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create Release & Upload .deb
+        uses: ncipollo/release-action@v1
+        with:
+          tag: ${{ steps.tag.outputs.name }}
+          artifacts: "packages/*.deb,*.deb"
+          token: ${{ secrets.GITHUB_TOKEN }}
+          allowUpdates: true
+          replacesArtifacts: true
