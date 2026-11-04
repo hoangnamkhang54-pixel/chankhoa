@@ -25,7 +25,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update -y
-          sudo apt-get install -y git wget curl build-essential clang fakeroot dpkg perl rsync unzip
+          sudo apt-get install -y git wget curl build-essential clang fakeroot dpkg perl rsync unzip xz-utils
           sudo wget -q https://github.com/ProcursusTeam/ldid/releases/latest/download/ldid_linux_x86_64 -O /usr/local/bin/ldid
           sudo chmod +x /usr/local/bin/ldid
 
@@ -34,6 +34,13 @@ jobs:
           git clone --recursive https://github.com/theos/theos.git "$THEOS"
           rm -rf "$THEOS/sdks"
           git clone --depth=1 https://github.com/theos/sdks.git "$THEOS/sdks"
+
+      - name: Install iOS toolchain
+        run: |
+          mkdir -p "$THEOS/toolchain"
+          curl -sL https://github.com/L1ghtmann/llvm-project/releases/latest/download/iOSToolchain.tar.xz | tar -xJf - -C "$THEOS/toolchain"
+          ls "$THEOS/toolchain/linux/iphone/bin" | head -n 20
+          test -x "$THEOS/toolchain/linux/iphone/bin/clang"
 
       - name: Build
         working-directory: NoScreenLock
