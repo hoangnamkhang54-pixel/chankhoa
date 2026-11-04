@@ -1,0 +1,44 @@
+name: Build & Release .deb
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  build-deb:
+    name: Build for arm64/arm64e
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code  
+        uses: actions/checkout@v3
+        
+      - name: Setup Theos Environment  
+        run: |
+          sudo apt-get update -y && sudo apt-get install -y \
+            git wget curl bsdmainutils autoconf automake libtool \
+            build-essential clang libffi-dev libssl-dev zlib1g-dev \
+            flex bison libxml2-dev libcurl4-openssl-dev cmake pkg-config
+      
+          # Install Theos for arm64 support  
+          git clone --recursive https://github.com/theos/theos ~/theos
+      
+          # Install SDK iOS 17 (arm64e compatible)  
+          wget https://github.com/theos/sdks/archive/iOS-SDK-17.zip  
+          unzip iOS-SDK-17.zip -d ~/theos/sdks/
+          
+      - name: Export env và build  
+        run: |
+          export THEOS=~/theos  
+          export ARCHS="arm64 arm64e"  
+          export TARGET_IPHONEOS_DEPLOYMENT_VERSION=15.0  
+
+          chmod +x package.sh  
+          ./package.sh
+        
+      - name: Create Release & Upload .deb  
+        uses: ncipollo/release-action@v1  
+        with:
+          artifacts: "releases/*.deb"
+          token: ${{ secrets.GITHUB_TOKEN }}
