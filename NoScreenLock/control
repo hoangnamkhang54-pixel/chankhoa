@@ -1,0 +1,10 @@
+Package: com.dadgpt.noscreenlock
+Name: NoBedTime 
+Version: 1.0.0
+Architecture: iphoneos-arm64
+Description: nhạc ngọt peak vl
+Maintainer: khang kẹo con
+Author: khang kẹo con
+Section: Tweaks
+Depends: firmware (>= 14.0), mobilesubstrate, preferenceloader
+Homepage: https://github.com/username/NoScreenLock
